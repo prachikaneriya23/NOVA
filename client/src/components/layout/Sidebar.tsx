@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { PanelLeftClose, Plus, MessageSquare, Trash2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { PanelLeftClose, Plus, MessageSquare, Trash2, Search, X } from 'lucide-react';
 import { Conversation } from '../../types/chat';
 
 interface SidebarProps {
@@ -74,9 +74,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectConversation,
   onDeleteConversation,
 }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter conversations matching title OR any message content (case-insensitive)
+  const filteredConversations = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return conversations;
+
+    return conversations.filter((c) => {
+      const matchTitle = c.title.toLowerCase().includes(query);
+      if (matchTitle) return true;
+
+      const matchMessages = c.messages?.some((m) =>
+        m.content.toLowerCase().includes(query)
+      );
+      return Boolean(matchMessages);
+    });
+  }, [conversations, searchQuery]);
+
   const groupedConversations = useMemo(
-    () => groupConversationsByDate(conversations),
-    [conversations]
+    () => groupConversationsByDate(filteredConversations),
+    [filteredConversations]
   );
 
   return (
@@ -103,7 +121,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Action Button: New Chat */}
-      <div className="p-3 flex-shrink-0">
+      <div className="p-3 pb-2 flex-shrink-0">
         <button
           onClick={() => {
             onNewChat();
@@ -118,11 +136,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
+      {/* Sidebar Search Input */}
+      <div className="px-3 pb-2 flex-shrink-0">
+        <div className="relative flex items-center">
+          <Search
+            size={14}
+            className="absolute left-2.5 text-[var(--text-secondary)] pointer-events-none"
+          />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search chats..."
+            className="w-full pl-8 pr-7 py-1.5 text-xs rounded-lg border border-[var(--border-color)] bg-[var(--bg-surface)] text-[var(--text-primary)] placeholder:text-[var(--text-secondary)] focus:outline-none focus:ring-1 focus:ring-[var(--accent-color)] transition-colors"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 p-0.5 rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+              title="Clear search"
+              aria-label="Clear search"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* History List */}
       <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
         {conversations.length === 0 ? (
           <div className="px-3 py-6 text-xs text-[var(--text-secondary)] text-center select-none">
             No chat history
+          </div>
+        ) : filteredConversations.length === 0 ? (
+          <div className="px-3 py-6 text-xs text-[var(--text-secondary)] text-center select-none">
+            No matching conversations
           </div>
         ) : (
           GROUP_ORDER.map((group) => {

@@ -7,12 +7,14 @@ interface ChatAreaProps {
   messages: Message[];
   isLoading?: boolean;
   isStreaming?: boolean;
+  onEditMessage?: (messageId: string, newContent: string) => void;
 }
 
 export const ChatArea: React.FC<ChatAreaProps> = ({
   messages,
   isLoading = false,
   isStreaming = false,
+  onEditMessage,
 }) => {
   if (messages.length === 0) {
     return <EmptyState />;
@@ -23,6 +25,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       messages={messages}
       isLoading={isLoading}
       isStreaming={isStreaming}
+      onEditMessage={onEditMessage}
     />
   );
 };

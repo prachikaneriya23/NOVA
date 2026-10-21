@@ -6,12 +6,14 @@ interface MessageListProps {
   messages: Message[];
   isLoading?: boolean;
   isStreaming?: boolean;
+  onEditMessage?: (messageId: string, newContent: string) => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
   messages,
   isLoading = false,
   isStreaming = false,
+  onEditMessage,
 }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -41,6 +43,7 @@ export const MessageList: React.FC<MessageListProps> = ({
               key={message.id}
               message={message}
               isStreaming={isCurrentlyStreaming}
+              onEditMessage={onEditMessage}
             />
           );
         })}

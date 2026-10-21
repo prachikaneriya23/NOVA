@@ -95,11 +95,60 @@ export class AIService {
 
     if (!this.client) {
       // Fallback dev stream when API key is not yet provided in .env
-      const devResponse =
+      const lastUserMsg = messages.filter((m) => m.role === 'user').pop()?.content.toLowerCase() || '';
+      let devResponse =
         "OpenAI API key is not yet configured in server/.env. Add your `OPENAI_API_KEY` to enable live GPT responses. Streaming architecture and SSE pipeline are fully operational.";
+
+      if (
+        lastUserMsg.includes('binary search') ||
+        lastUserMsg.includes('typescript') ||
+        lastUserMsg.includes('code') ||
+        lastUserMsg.includes('function')
+      ) {
+        devResponse = `Here is a clean TypeScript implementation of **Binary Search**:
+
+\`\`\`typescript
+/**
+ * Performs a binary search on a sorted array of numbers.
+ * @param arr - Ascending sorted array of numbers
+ * @param target - The number to search for
+ * @returns The index of target if found, or -1 if not present
+ */
+export function binarySearch(arr: number[], target: number): number {
+  let left = 0;
+  let right = arr.length - 1;
+
+  while (left <= right) {
+    // Avoid potential overflow with large integers
+    const mid = Math.floor(left + (right - left) / 2);
+
+    if (arr[mid] === target) {
+      return mid; // Element found
+    }
+
+    if (arr[mid] < target) {
+      left = mid + 1; // Discard left half
+    } else {
+      right = mid - 1; // Discard right half
+    }
+  }
+
+  return -1; // Element not found
+}
+
+// Example usage:
+const sortedNumbers = [2, 5, 8, 12, 16, 23, 38, 56, 72, 91];
+console.log(binarySearch(sortedNumbers, 23)); // Output: 5
+\`\`\`
+
+### Key Properties:
+- **Time Complexity:** $O(\\log n)$ — cuts the search space in half each iteration.
+- **Space Complexity:** $O(1)$ — constant auxiliary memory.`;
+      }
+
       const words = devResponse.split(' ');
       for (const word of words) {
-        await new Promise((resolve) => setTimeout(resolve, 35));
+        await new Promise((resolve) => setTimeout(resolve, 30));
         yield word + ' ';
       }
       return;

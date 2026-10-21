@@ -278,6 +278,108 @@ function ChatApplication() {
     }
   };
 
+  const handleEditUserMessage = async (messageId: string, newContent: string) => {
+    handleStop();
+    setErrorBanner(null);
+
+    const targetIndex = messages.findIndex((m) => m.id === messageId);
+    if (targetIndex === -1) return;
+
+    const updatedUserMessage: Message = {
+      ...messages[targetIndex],
+      content: newContent,
+      timestamp: new Date(),
+    };
+
+    const historyToSend = [...messages.slice(0, targetIndex), updatedUserMessage];
+
+    const assistantPlaceholderId = generateMessageId();
+    const assistantPlaceholder: Message = {
+      id: assistantPlaceholderId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+    };
+
+    let currentStreamedMessages = [...historyToSend, assistantPlaceholder];
+    const targetConvId = activeConversationIdRef.current || generateId();
+
+    if (targetIndex === 0) {
+      const updatedTitle = generateTitle(newContent);
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === targetConvId ? { ...c, title: updatedTitle } : c
+        )
+      );
+    }
+
+    setMessages(currentStreamedMessages);
+    syncConversationState(targetConvId, currentStreamedMessages);
+
+    setIsLoading(true);
+    setIsStreaming(true);
+
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+
+    let lastSaveTime = Date.now();
+
+    await streamChat(
+      historyToSend,
+      {
+        onChunk: (chunk: string) => {
+          setIsLoading(false);
+          currentStreamedMessages = currentStreamedMessages.map((msg) =>
+            msg.id === assistantPlaceholderId
+              ? { ...msg, content: msg.content + chunk }
+              : msg
+          );
+
+          setMessages(currentStreamedMessages);
+
+          const now = Date.now();
+          if (now - lastSaveTime > 300) {
+            lastSaveTime = now;
+            syncConversationState(targetConvId, currentStreamedMessages);
+          }
+        },
+        onDone: () => {
+          setIsLoading(false);
+          setIsStreaming(false);
+          abortControllerRef.current = null;
+          syncConversationState(targetConvId, currentStreamedMessages);
+        },
+        onError: (err: Error) => {
+          setIsLoading(false);
+          setIsStreaming(false);
+          abortControllerRef.current = null;
+          console.error('[Stream Error]', err);
+
+          const placeholderMsg = currentStreamedMessages.find(
+            (m) => m.id === assistantPlaceholderId
+          );
+          const hasExistingText =
+            placeholderMsg && placeholderMsg.content.trim().length > 0;
+
+          currentStreamedMessages = currentStreamedMessages.map((msg) =>
+            msg.id === assistantPlaceholderId
+              ? {
+                  ...msg,
+                  content: hasExistingText
+                    ? msg.content + `\n\n[Stream interrupted: ${err.message}]`
+                    : `Unable to receive response: ${err.message}`,
+                }
+              : msg
+          );
+
+          setMessages(currentStreamedMessages);
+          syncConversationState(targetConvId, currentStreamedMessages);
+        },
+      },
+      abortController.signal
+    );
+  };
+
   return (
     <AppLayout
       conversations={conversations}
@@ -296,6 +398,7 @@ function ChatApplication() {
           messages={messages}
           isLoading={isLoading}
           isStreaming={isStreaming}
+          onEditMessage={handleEditUserMessage}
         />
         <ChatInput
           onSendMessage={handleSendMessage}
